@@ -15,14 +15,37 @@ public class Hexagon : Selectable {
 			x = _x;
 			y = _y;
 		}
+
+		const string lut = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+		public override string ToString()
+		{
+			string name = "";
+			int ix = x;
+			for (;;)
+			{
+				int next = ix / lut.Length;
+				int curr = ix % lut.Length;
+				name += lut[curr];
+				if (next == 0)
+					break;
+
+				ix = next;
+			}
+
+			name += (y+1).ToString("D2");
+			return name;
+		}
 	}
 
 	public enum Type
 	{
-		Safe = 0,
-		Danger = 1,
-		None = 2,
-		Length = 3		
+		CleanSector = 0,
+		SpecialSector = 1,
+		Hollow = 2,
+		HumanSpawn = 3,
+		AlienSpawn = 4,
+		EscapeHatch = 5,
+		Count = 6
 	}
 
 	public enum Highlight
@@ -33,27 +56,12 @@ public class Hexagon : Selectable {
 		Unreachable = 3,
 	}
 
+	public TextMesh m_hexText;
 	private HexMatrix m_parent;
 	private Position m_pos;
-	private Type m_type = Type.None;
+	private Type m_type = Type.Hollow;
 	private Highlight m_highlight = Highlight.None;
 	private Renderer m_childRenderer = null;
-
-	static private Color[] TypeColor =
-	{
-		Color.white,
-		Color.gray,
-		Color.black,
-		Color.gray
-	};
-
-	static private Color[] HighlightColor =
-	{
-		Color.white,
-		Color.gray,
-		Color.black,
-		Color.gray
-	};
 
 	void Awake ()
 	{
@@ -66,21 +74,27 @@ public class Hexagon : Selectable {
 		enabled = false;
 	}
 
-	public void Init(HexMatrix parent, Position position, Type type)
+	public void Init(HexMatrix parent, Position position, Type type, Texture texture, string hexText)
 	{
 		m_parent = parent;
 		m_pos = position;
 		m_type = (Type) type;
 
-		if (m_type == Type.None)
+		if (m_type == Type.Hollow)
 		{
 			Interactable = false;
 			if (m_childRenderer != null)
-			{
 				m_childRenderer.enabled = false;
-			}
 		}
-			
+		else if (m_childRenderer != null)
+			m_childRenderer.material.mainTexture = texture;
+
+		if (m_hexText != null)
+		{
+			m_hexText.text = hexText;
+		}
+
+		
 
 		enabled = true;
 	}
@@ -100,7 +114,7 @@ public class Hexagon : Selectable {
 	protected bool m_lastIsPointerDown = false;
 	protected override void DoStateTransition(SelectionState state, bool instant)
 	{
-		m_typeColor = TypeColor[(int) m_type];
+		m_typeColor = Color.white;
 		switch (state)
 		{
 			case SelectionState.Normal:
@@ -136,6 +150,13 @@ public class Hexagon : Selectable {
 		{
 			Material mat = m_childRenderer.material;
 			mat.color = m_currentColor;
+		}
+
+		if (m_hexText != null)
+		{
+			Color textColor = m_currentColor * 0.25f;
+			textColor.a = 1.0f;
+			m_hexText.color = textColor;
 		}
 	}
 }
