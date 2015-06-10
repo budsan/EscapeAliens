@@ -27,6 +27,7 @@ public class Selectable
 		set
 		{
 			m_Interactable = value;
+			InternalEvaluateAndTransitionToSelectionState(false);
 		}
 	}
 
