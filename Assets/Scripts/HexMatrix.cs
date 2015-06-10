@@ -1,4 +1,6 @@
 ﻿using UnityEngine;
+using System;
+using System.Text;
 using System.Collections;
 using System.Collections.Generic;
 
@@ -21,9 +23,19 @@ public class HexMatrix : MonoBehaviour {
 
 	private Hexagon[,] cells;
 
-	public GameObject square;
+	public int numPlayers = 4;
+	public GameObject HexagonPrefab;
 	public Vector2 stride = new Vector2(1.50f, 1.70f);
 	public Texture[] textures;
+	public UnityEngine.UI.Text LogText;
+
+	public enum SpecialSectorType
+	{
+		None,
+		NoiseInYourSector,
+		NoiseInAnySector,
+		SilenceInAllSectors
+	};
 
 	private struct GameState
 	{
@@ -37,20 +49,84 @@ public class HexMatrix : MonoBehaviour {
 
 			public Type type;
 			public Hexagon.Position position;
+			public bool alive;
 		}
 
 		public Player[] players;
 		public int player_turn;
+		public int turn_count;
+
+		public Hexagon.Position position_to_move;
+		public SpecialSectorType sector_action;
 	}
 
-	private int size = 0;
-	private GameState currentState;
+	private int m_mapSize = 0;
+	private GameState m_state;
+
+	private Hexagon.Position AlienSpawnPosition;
+	private Hexagon.Position HumanSpawnPosition;
+
+	private System.Random m_random;
+
+	private Hexagon.Position m_click = new Hexagon.Position(-1, -1);
+	private HashSet<Hexagon.Position> m_currentWalkablePositions = new HashSet<Hexagon.Position>();
+	private Hexagon.Position m_highlighted = new Hexagon.Position(-1, -1);
+
+	public void PrintLog(string msg)
+	{
+		if (LogText != null)
+		{
+			LogText.text += msg + "\n";
+		}
+		else
+		{
+			Debug.Log(msg);
+		}
+	}
+
+	public bool ValidSectorSelected()
+	{
+		return IsWalkeable(m_click);
+	}
+
+	public int TurnCount()
+	{
+		return m_state.turn_count;
+	}
+
+	public int PlayerTurn()
+	{
+		return m_state.player_turn;
+	}
+
+	public bool IsHumanPlaying()
+	{
+		return m_state.players[m_state.player_turn].type == GameState.Player.Type.Human;
+	}
+
+	public SpecialSectorType CurrentSectorAction()
+	{
+		return m_state.sector_action;
+	}
+
+	public Hexagon.Position GetCurrentPlayerPosition()
+	{
+		return m_state.players[m_state.player_turn].position;
+	}
 
 	// Use this for initialization
 	void Start ()
 	{
-		size = (int) Mathf.Sqrt(typemat.Length);
-		cells = new Hexagon[size, size];
+		if (LogText != null)
+			LogText.text = "";
+
+		if (HexagonPrefab == null)
+			Debug.LogError("No prefab assigned for creating playground.");
+
+		m_random = new System.Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+
+		m_mapSize = (int) Mathf.Sqrt(typemat.Length);
+		cells = new Hexagon[m_mapSize, m_mapSize];
 
 		if (textures.Length < (int) Hexagon.Type.Count)
 		{
@@ -67,15 +143,15 @@ public class HexMatrix : MonoBehaviour {
 			}
 		}
 
-		Vector2 halfsize = stride * size * -0.5f;
-		Hexagon.Position AlienSpawnPosition = new Hexagon.Position(-1, -1);
-		Hexagon.Position HumanSpawnPosition = new Hexagon.Position(-1, -1);
+		AlienSpawnPosition = new Hexagon.Position(-1, -1);
+		HumanSpawnPosition = new Hexagon.Position(-1, -1);
 
+		Vector2 halfsize = stride * m_mapSize * -0.5f;
 		int hatchNum = 0;
-		for(int y = 0; y < size; ++y) {
-			for(int x = 0; x < size; ++x)
+		for(int y = 0; y < m_mapSize; ++y) {
+			for(int x = 0; x < m_mapSize; ++x)
 			{
-				GameObject mesh = (GameObject) Instantiate(square);
+				GameObject mesh = (GameObject) Instantiate(HexagonPrefab);
 				Hexagon.Position hexpos = new Hexagon.Position(x, y);
 				
 				mesh.name = "Hex " + hexpos.ToString();
@@ -137,16 +213,50 @@ public class HexMatrix : MonoBehaviour {
 			return;
 		}
 
-		currentState = new GameState();
-		currentState.player_turn = 0;
-		currentState.players = new GameState.Player[2];
-		currentState.players[0] = new GameState.Player();
-		currentState.players[0].type = GameState.Player.Type.Human;
-		currentState.players[0].position = HumanSpawnPosition;
+		m_state = new GameState();
 
-		currentState.players[1] = new GameState.Player();
-		currentState.players[1].type = GameState.Player.Type.Alien;
-		currentState.players[1].position = AlienSpawnPosition;
+		if (numPlayers < 2)
+			numPlayers = 2;
+
+		//Generating equal num of roles
+		int[] roles = new int[numPlayers];
+		for (int i = 0; i < numPlayers; i++)
+			roles[i] = i % 2;
+
+		// Shuffle
+		int n = numPlayers;
+		while (n > 1) {
+			n--;
+			int k = m_random.Next(n + 1);
+			int value = roles[k];
+			roles[k] = roles[n];
+			roles[n] = value;
+		}
+
+		// Creating players
+		m_state.players = new GameState.Player[numPlayers];
+		for (int i = 0; i < numPlayers; i++)
+		{
+			m_state.players[i] = new GameState.Player();
+			if (roles[i] == 0)
+			{
+				m_state.players[i].type = GameState.Player.Type.Human;
+				m_state.players[i].position = HumanSpawnPosition;
+			}
+			else
+			{
+				m_state.players[i].type = GameState.Player.Type.Alien;
+				m_state.players[i].position = AlienSpawnPosition;
+			}
+
+			m_state.players[i].alive = true;
+		}
+		
+		m_state.player_turn = m_random.Next(numPlayers);
+		m_state.turn_count = 0;
+		m_state.sector_action = SpecialSectorType.None;
+
+		PrintLog("Created game for " + numPlayers + " players.");
 
 		SetupNewTurn();
 	}
@@ -154,9 +264,9 @@ public class HexMatrix : MonoBehaviour {
 	private bool IsWalkeable(Hexagon.Position position)
 	{
 		return position.x >= 0
-			&& position.x < size
+			&& position.x < m_mapSize
 			&& position.y >= 0
-			&& position.y < size 
+			&& position.y < m_mapSize 
 			&&(typemat[position.y, position.x] == (int)Hexagon.Type.CleanSector
 			|| typemat[position.y, position.x] == (int)Hexagon.Type.SpecialSector
 			|| typemat[position.y, position.x] == (int)Hexagon.Type.EscapeHatch);
@@ -181,18 +291,16 @@ public class HexMatrix : MonoBehaviour {
 		AddRelativeHexagon(position, +1, +0 + yshift, positions);
 	}
 
-	private HashSet<Hexagon.Position> m_currentWalkablePositions = new HashSet<Hexagon.Position>();
-	private Hexagon.Position highlighted = new Hexagon.Position(-1, -1);
 	private void SetupNewTurn()
 	{
-		if (highlighted.x >= 0)
-			cells[highlighted.y, highlighted.x].highlight = Hexagon.Highlight.None;
+		Hexagon.Position pos = new Hexagon.Position(0, 0);
+		for (pos.y = 0; pos.y < m_mapSize; ++pos.y)
+			for (pos.x = 0; pos.x < m_mapSize; ++pos.x) {
+					cells[pos.y, pos.x].highlight = Hexagon.Highlight.None;
+					cells[pos.y, pos.x].interactable = false;
+				}
 
-		foreach (Hexagon.Position position in m_currentWalkablePositions)
-			cells[position.y, position.x].interactable = false;
-
-		GameState.Player currentPlayer = currentState.players[currentState.player_turn];
-		Debug.Log("Current player turn: " + currentState.player_turn + ". CurrentPlayer: " + currentPlayer.position.ToString() + " " + currentPlayer.type.ToString());
+		GameState.Player currentPlayer = m_state.players[m_state.player_turn];
 
 		int steps = 1;
 		if (currentPlayer.type == GameState.Player.Type.Alien)
@@ -211,35 +319,117 @@ public class HexMatrix : MonoBehaviour {
 		}
 
 		m_currentWalkablePositions.Remove(currentPlayer.position);
-		highlighted = currentPlayer.position;
-		cells[highlighted.y, highlighted.x].highlight = Hexagon.Highlight.Current;
+		m_highlighted = currentPlayer.position;
+		cells[m_highlighted.y, m_highlighted.x].highlight = Hexagon.Highlight.Current;
 
 		foreach (Hexagon.Position position in m_currentWalkablePositions)
 			cells[position.y, position.x].interactable = true;
 
+		m_click = new Hexagon.Position(-1, -1);
+		m_state.sector_action = SpecialSectorType.None;
+	}
+
+	private void InternalMoveOn(Hexagon.Position position)
+	{
+		m_state.players[m_state.player_turn].position = position;
+		m_state.player_turn = (m_state.player_turn + 1) % m_state.players.Length;
+		m_state.turn_count++;
+		SetupNewTurn();
+	}
+
+	public void TurnSpecialSectorMoveOn(Hexagon.Position position)
+	{
+
+		StringBuilder builder = new StringBuilder();
+		builder.Append("[P");
+		builder.Append((m_state.player_turn + 1).ToString());
+		builder.Append(":T");
+		builder.Append(m_state.turn_count / m_state.players.Length);
+		builder.Append("] ");
+
+		switch(m_state.sector_action)
+		{
+			case SpecialSectorType.None:
+				break;
+			case SpecialSectorType.NoiseInYourSector:
+				builder.Append("Noise in sector " + m_state.position_to_move.ToString());
+				break;
+			case SpecialSectorType.NoiseInAnySector:
+				builder.Append("Noise in sector " + position.ToString());
+				break;
+			case SpecialSectorType.SilenceInAllSectors:
+				builder.Append("Silence in all sectors");
+				break;
+		}
+
+		PrintLog(builder.ToString());
+		InternalMoveOn(m_state.position_to_move);
 	}
 
 	public void TurnMoveOn(Hexagon.Position position)
 	{
+		if (m_state.sector_action != SpecialSectorType.None)
+			return;
+
 		if (m_currentWalkablePositions.Contains(position))
 		{
-			currentState.players[currentState.player_turn].position = position;
-			currentState.player_turn = (currentState.player_turn + 1) % currentState.players.Length;
-			SetupNewTurn();
+			Hexagon.Type type = (Hexagon.Type) typemat[position.y, position.x];
+			switch(type)
+			{
+				case Hexagon.Type.CleanSector:
+					break;
+				case Hexagon.Type.SpecialSector:
+					m_state.position_to_move = position;
+					int rand = m_random.Next(5);
+					if (rand == 0 || rand == 1)
+						m_state.sector_action = SpecialSectorType.NoiseInYourSector;
+					else if (rand == 2 || rand == 3)
+						m_state.sector_action = SpecialSectorType.NoiseInAnySector;
+					else
+						m_state.sector_action = SpecialSectorType.SilenceInAllSectors;
+					break;
+			}
+			
+
+			if (type == Hexagon.Type.CleanSector)
+			{
+				StringBuilder builder = new StringBuilder();
+				builder.Append("[P");
+				builder.Append((m_state.player_turn + 1).ToString());
+				builder.Append(":T");
+				builder.Append(m_state.turn_count / m_state.players.Length);
+				builder.Append("] ");
+				builder.Append("Moved to safe sector.");
+
+				PrintLog(builder.ToString());
+				InternalMoveOn(position);
+			}
+			else
+			{
+				m_click = new Hexagon.Position(-1, -1);
+				Hexagon.Position pos = new Hexagon.Position(0, 0);
+				for (pos.y = 0; pos.y < m_mapSize; ++pos.y)
+					for (pos.x = 0; pos.x < m_mapSize; ++pos.x)
+						if (IsWalkeable(pos))
+							cells[pos.y, pos.x].interactable = true;
+			}
 		}
 	}
 
-	Hexagon.Position m_click = new Hexagon.Position(-1, -1);
+	public void TurnSpecialSectorMove()
+	{
+		TurnSpecialSectorMoveOn(m_click);
+	}
+
+	public void TurnMove()
+	{
+		TurnMoveOn(m_click);
+	}
+
+	
 	public void ClickOn(Hexagon.Position position)
 	{
-		if (position.Equals(m_click))
-		{
-			m_click = new Hexagon.Position(-1, -1);
-			TurnMoveOn(position);
-			m_click = new Hexagon.Position(-1, -1);
-		}
-		else 
-			m_click = position;
+		m_click = position;
 	}
 
 }

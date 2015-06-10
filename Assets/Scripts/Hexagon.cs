@@ -81,6 +81,7 @@ public class Hexagon : Selectable {
 	private Position m_pos;
 	private Type m_type = Type.Hollow;
 
+	[SerializeField]
 	private Highlight m_highlight = Highlight.None;
 	public Highlight highlight { get { return m_highlight; } set { m_highlight = value; OnSetProperty(); } }
 
