@@ -120,7 +120,7 @@ public class HexMatrix : MonoBehaviour {
 
 					cell.Init(this, hexpos, (Hexagon.Type)type, textures[type], hexName);
 					cell.enabled = true;
-					cell.Interactable = false;
+					cell.interactable = false;
 				}
 			}
 		}
@@ -175,24 +175,71 @@ public class HexMatrix : MonoBehaviour {
 		int yshift = (position.x % 2);
 		AddRelativeHexagon(position, -1, -1 + yshift, positions);
 		AddRelativeHexagon(position, -1, +0 + yshift, positions);
-		AddRelativeHexagon(position, +0, -1 + yshift, positions);
-		AddRelativeHexagon(position, +0, +1 + yshift, positions);
+		AddRelativeHexagon(position, +0, -1         , positions);
+		AddRelativeHexagon(position, +0, +1         , positions);
 		AddRelativeHexagon(position, +1, -1 + yshift, positions);
 		AddRelativeHexagon(position, +1, +0 + yshift, positions);
 	}
 
 	private HashSet<Hexagon.Position> m_currentWalkablePositions = new HashSet<Hexagon.Position>();
+	private Hexagon.Position highlighted = new Hexagon.Position(-1, -1);
 	private void SetupNewTurn()
 	{
+		if (highlighted.x >= 0)
+			cells[highlighted.y, highlighted.x].highlight = Hexagon.Highlight.None;
+
 		foreach (Hexagon.Position position in m_currentWalkablePositions)
-			cells[position.y, position.x].Interactable = false;
+			cells[position.y, position.x].interactable = false;
+
+		GameState.Player currentPlayer = currentState.players[currentState.player_turn];
+		Debug.Log("Current player turn: " + currentState.player_turn + ". CurrentPlayer: " + currentPlayer.position.ToString() + " " + currentPlayer.type.ToString());
+
+		int steps = 1;
+		if (currentPlayer.type == GameState.Player.Type.Alien)
+			steps = 2;
 
 		m_currentWalkablePositions.Clear();
+		m_currentWalkablePositions.Add(currentPlayer.position);
+		for (int i = 0; i < steps; i++)
+		{
+			HashSet<Hexagon.Position> positions = new HashSet<Hexagon.Position>();
+			foreach (Hexagon.Position position in m_currentWalkablePositions)
+				AddNeighboursHexagons(position, positions);
+
+			foreach (Hexagon.Position position in positions)
+				m_currentWalkablePositions.Add(position);
+		}
+
+		m_currentWalkablePositions.Remove(currentPlayer.position);
+		highlighted = currentPlayer.position;
+		cells[highlighted.y, highlighted.x].highlight = Hexagon.Highlight.Current;
+
+		foreach (Hexagon.Position position in m_currentWalkablePositions)
+			cells[position.y, position.x].interactable = true;
+
 	}
 
+	public void TurnMoveOn(Hexagon.Position position)
+	{
+		if (m_currentWalkablePositions.Contains(position))
+		{
+			currentState.players[currentState.player_turn].position = position;
+			currentState.player_turn = (currentState.player_turn + 1) % currentState.players.Length;
+			SetupNewTurn();
+		}
+	}
+
+	Hexagon.Position m_click = new Hexagon.Position(-1, -1);
 	public void ClickOn(Hexagon.Position position)
 	{
-		Debug.Log(position.x + " " + position.y);
+		if (position.Equals(m_click))
+		{
+			m_click = new Hexagon.Position(-1, -1);
+			TurnMoveOn(position);
+			m_click = new Hexagon.Position(-1, -1);
+		}
+		else 
+			m_click = position;
 	}
 
 }

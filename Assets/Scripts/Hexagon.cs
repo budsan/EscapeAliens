@@ -5,12 +5,12 @@ using System;
 
 public class Hexagon : Selectable {
 
-	public struct Position
+	public struct Position : IComparable
 	{
 		public int x;
 		public int y;
 
-		public Position(int _x, int _y)
+		public Position(int _x, int _y) 
 		{
 			x = _x;
 			y = _y;
@@ -35,6 +35,28 @@ public class Hexagon : Selectable {
 			name += (y+1).ToString("D2");
 			return name;
 		}
+
+		public override bool Equals(object obj)
+		{
+			if (!(obj is Position)) return false;
+
+			Position p = (Position) obj;
+			return p.x == x && p.y == y;
+		}
+
+		public override int GetHashCode()
+		{
+			return (((x << 5) + x) ^ y);
+		}
+
+		public int CompareTo(object obj)
+		{
+			if (!(obj is Position)) return -1;
+
+			Position p = (Position) obj;
+			int compare_x = x.CompareTo(p.x);
+			return compare_x == 0 ? y.CompareTo(p.y) : compare_x;
+		}
 	}
 
 	public enum Type
@@ -52,15 +74,16 @@ public class Hexagon : Selectable {
 	{
 		None = 0,
 		Current = 1,
-		Reachable = 2,
-		Unreachable = 3,
 	}
 
 	public TextMesh m_hexText;
 	private HexMatrix m_parent;
 	private Position m_pos;
 	private Type m_type = Type.Hollow;
+
 	private Highlight m_highlight = Highlight.None;
+	public Highlight highlight { get { return m_highlight; } set { m_highlight = value; OnSetProperty(); } }
+
 	private Renderer m_childRenderer = null;
 
 	void Awake ()
@@ -82,7 +105,7 @@ public class Hexagon : Selectable {
 
 		if (m_type == Type.Hollow)
 		{
-			Interactable = false;
+			interactable = false;
 			if (m_childRenderer != null)
 				m_childRenderer.enabled = false;
 		}
@@ -111,10 +134,12 @@ public class Hexagon : Selectable {
 			m_currentColor = targetColor;
 	}
 
-	protected bool m_lastIsPointerDown = false;
 	protected override void DoStateTransition(SelectionState state, bool instant)
 	{
 		m_typeColor = Color.white;
+		if (m_highlight == Highlight.Current)
+			m_typeColor = Color.cyan;
+
 		switch (state)
 		{
 			case SelectionState.Normal:
@@ -122,14 +147,10 @@ public class Hexagon : Selectable {
 				break; 
 			case SelectionState.Highlighted:
 				DoColorTransition(Color.Lerp(Color.red, m_typeColor, 0.5f), instant);
-				if (m_lastIsPointerDown && !isPointerDown)
-					m_parent.ClickOn(m_pos);
-
-				m_lastIsPointerDown = false;
 				break;
 			case SelectionState.Pressed:
 				DoColorTransition(Color.Lerp(Color.yellow, m_typeColor, 0.5f), instant);
-				m_lastIsPointerDown = isPointerDown;
+				m_parent.ClickOn(m_pos);
 				break;
 			case SelectionState.Disabled:
 				DoColorTransition(m_typeColor * 0.5f, instant);

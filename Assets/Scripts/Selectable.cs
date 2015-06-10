@@ -18,18 +18,6 @@ public class Selectable
 	[Tooltip("Can the Interactable be interacted with?")]
 	[SerializeField]
 	private bool m_Interactable = true;
-	public bool Interactable
-	{
-		get
-		{
-			return m_Interactable;
-		}
-		set
-		{
-			m_Interactable = value;
-			InternalEvaluateAndTransitionToSelectionState(false);
-		}
-	}
 
 	protected enum SelectionState
 	{
@@ -40,6 +28,8 @@ public class Selectable
 	}
 
 	private SelectionState m_CurrentSelectionState;
+
+	public bool interactable { get { return m_Interactable; } set { if (SetStruct(ref m_Interactable, value)) OnSetProperty(); } }
 
 	protected bool isPointerInside { get; private set; }
 	protected bool isPointerDown { get; private set; }
@@ -71,7 +61,16 @@ public class Selectable
 		InternalEvaluateAndTransitionToSelectionState(true);
 	}
 
-	private void OnSetProperty()
+	public static bool SetStruct<T>(ref T currentValue, T newValue) where T : struct
+	{
+		if (currentValue.Equals(newValue))
+			return false;
+
+		currentValue = newValue;
+		return true;
+	}
+
+	protected void OnSetProperty()
 	{
 #if UNITY_EDITOR
             if (!Application.isPlaying)
