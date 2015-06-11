@@ -292,7 +292,13 @@ public class HexMatrix : MonoBehaviour {
 		if (!buildInEditor)
 		{
 			foreach (Transform child in transform)
-				Destroy(child.gameObject);
+			{
+				GameObject toDestroy = child.gameObject;
+				UnityEditor.EditorApplication.delayCall += () => {
+					DestroyImmediate(toDestroy);
+				};
+			}
+				
 
 			cells = null;
 		}
