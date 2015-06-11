@@ -345,7 +345,6 @@ public class HexMatrix : MonoBehaviour {
 
 	public void TurnSpecialSectorMoveOn(Hexagon.Position position)
 	{
-
 		StringBuilder builder = new StringBuilder();
 		builder.Append("[P");
 		builder.Append((m_state.player_turn + 1).ToString());

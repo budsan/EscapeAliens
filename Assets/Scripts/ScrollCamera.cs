@@ -7,16 +7,9 @@ using System;
 public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeginDragHandler, IEndDragHandler, IDragHandler, IScrollHandler
 {
 	[Serializable]
-	public class ScrollCameraEvent : UnityEvent<Vector2> { }
+	public class ScrollCameraEvent : UnityEvent<Vector3> { }
 
-	[SerializeField]
-	private Transform m_Target;
-	public Transform target { get { return m_Target; } set { m_Target = value; } }
-	private Vector2 TargetPosition
-	{
-		get { return new Vector2( m_Target.transform.position.x / m_TargetScale, m_Target.transform.position.z / m_TargetScale); }
-		set { m_Target.transform.position = new Vector3(value.x * m_TargetScale, m_Target.transform.position.y, value.y * m_TargetScale); }
-	}
+	private Transform m_target = null;
 
 	[SerializeField]
 	private float m_TargetScale = 0.1f;
@@ -39,15 +32,15 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 	public ScrollCameraEvent onValueChanged { get { return m_OnValueChanged; } set { m_OnValueChanged = value; } }
 
 	// The offset from handle position to mouse down position
-	private Vector2 m_PointerStartLocalCursor = Vector2.zero;
-	private Vector2 m_ContentStartPosition = Vector2.zero;
+	private Vector3 m_PointerStartLocalCursor = Vector3.zero;
+	private Vector3 m_ContentStartPosition = Vector3.zero;
 
-	private Vector2 m_Velocity;
-	public Vector2 velocity { get { return m_Velocity; } set { m_Velocity = value; } }
+	private Vector3 m_Velocity;
+	public Vector3 velocity { get { return m_Velocity; } set { m_Velocity = value; } }
 
 	private bool m_Dragging;
 
-	private Vector2 m_PrevPosition = Vector2.zero;
+	private Vector3 m_PrevPosition = Vector3.zero;
 
 	protected ScrollCamera()
 	{ }
@@ -62,54 +55,58 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 
 	public virtual bool IsActive()
 	{
-		return enabled && isActiveAndEnabled && gameObject.activeInHierarchy && m_Target != null;
+		return enabled && isActiveAndEnabled && gameObject.activeInHierarchy && m_target != null;
 	}
 
 	public virtual void StopMovement()
 	{
-		m_Velocity = Vector2.zero;
+		m_Velocity = Vector3.zero;
 	}
 
 	public virtual void OnScroll(PointerEventData data)
 	{
+		m_target = data.pressEventCamera != null ? data.pressEventCamera.transform : null;
+
 		if (!IsActive())
 			return;
 
-		Vector2 delta = data.scrollDelta;
-		// Down is positive for scroll events, while in UI system up is positive.
-		delta.y *= -1;
-		Vector2 position = TargetPosition;
+		Vector3 delta = m_target.right * data.scrollDelta.x + m_target.forward * data.scrollDelta.y;
+		Vector3 position = m_target.position;
 		position += delta * m_ScrollSensitivity;
-		SetContentAnchoredPosition(position);
+		m_target.position = position;
 	}
 
 	public virtual void OnInitializePotentialDrag(PointerEventData eventData)
 	{
-		m_Velocity = Vector2.zero;
+		m_target = eventData.pressEventCamera.transform;
+		m_Velocity = Vector3.zero;
 	}
 
 	public virtual void OnBeginDrag(PointerEventData eventData)
 	{
+		m_target = eventData.pressEventCamera != null ? eventData.pressEventCamera.transform : null;
 		if (eventData.button != PointerEventData.InputButton.Left)
 			return;
 
 		if (!IsActive())
 			return;
 
+		Camera camera = eventData.pressEventCamera;
 		Plane plane = new Plane(transform.up, transform.position);
-		Ray ray = eventData.pressEventCamera.ScreenPointToRay(eventData.position);
+		Ray ray = camera.ScreenPointToRay(eventData.position);
 		float rayDistance = eventData.pressEventCamera.farClipPlane;
 		if (!plane.Raycast(ray, out rayDistance))
 			return;
 
 		Vector3 rayHit = ray.GetPoint(rayDistance);
-		m_PointerStartLocalCursor = new Vector2(rayHit.x, rayHit.z);
-		m_ContentStartPosition = TargetPosition;
+		m_PointerStartLocalCursor = rayHit;
+		m_ContentStartPosition = m_target.position;
 		m_Dragging = true;
 	}
 
 	public virtual void OnEndDrag(PointerEventData eventData)
 	{
+		m_target = eventData.pressEventCamera != null ? eventData.pressEventCamera.transform : null;
 		if (eventData.button != PointerEventData.InputButton.Left)
 			return;
 
@@ -118,44 +115,51 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 
 	public virtual void OnDrag(PointerEventData eventData)
 	{
+		m_target = eventData.pressEventCamera != null ? eventData.pressEventCamera.transform : null;
 		if (eventData.button != PointerEventData.InputButton.Left)
 			return;
 
 		if (!IsActive())
 			return;
 
+		Camera camera = eventData.pressEventCamera;
+		Vector3 contentCurrentPosition = m_target.position;
+		camera.transform.position = m_ContentStartPosition;
+
 		Plane plane = new Plane(transform.up, transform.position);
-		Ray ray = eventData.pressEventCamera.ScreenPointToRay(eventData.position);
+		Ray ray = camera.ScreenPointToRay(eventData.position);
+		
 		float rayDistance =  eventData.pressEventCamera.farClipPlane;
 		if (!plane.Raycast(ray, out rayDistance))
 			return;
 
 		Vector3 rayHit = ray.GetPoint(rayDistance);
-		Vector2 localCursor = new Vector2(rayHit.x, rayHit.z);
-		var pointerDelta = localCursor - m_PointerStartLocalCursor;
-		Vector2 position = m_ContentStartPosition + pointerDelta;
+		var pointerDelta = m_PointerStartLocalCursor - rayHit;
+
+		Vector3 position = m_ContentStartPosition + pointerDelta;
+		
 
 		// Offset to get content into place in the view.
-		Vector2 offset = position - TargetPosition;
+		Vector3 offset = position - m_target.position;
 		position += offset;
 		SetContentAnchoredPosition(position);
 	}
 
-	protected virtual void SetContentAnchoredPosition(Vector2 position)
+	protected virtual void SetContentAnchoredPosition(Vector3 position)
 	{
-		TargetPosition = position;
+		m_target.position = position;
 	}
 
 	protected virtual void LateUpdate()
 	{
-		if (!m_Target)
+		if (m_target == null)
 			return;
 
 		float deltaTime = Time.unscaledDeltaTime;
-		if (!m_Dragging && m_Velocity != Vector2.zero)
+		if (!m_Dragging && m_Velocity != Vector3.zero)
 		{
-			Vector2 position = TargetPosition;
-			for (int axis = 0; axis < 2; axis++)
+			Vector3 position = m_target.position;
+			for (int axis = 0; axis < 3; axis++)
 			{
 				// move content according to velocity with deceleration applied.
 				if (m_Inertia)
@@ -172,7 +176,7 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 				}
 			}
 
-			if (m_Velocity != Vector2.zero)
+			if (m_Velocity != Vector3.zero)
 			{
 				SetContentAnchoredPosition(position);
 			}
@@ -180,11 +184,11 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 
 		if (m_Dragging && m_Inertia)
 		{
-			Vector3 newVelocity = (TargetPosition - m_PrevPosition) / (deltaTime * targetScale);
+			Vector3 newVelocity = (m_target.position - m_PrevPosition) / (deltaTime * targetScale);
 			m_Velocity = Vector3.Lerp(m_Velocity, newVelocity, deltaTime);
 		}
 
-		if (TargetPosition != m_PrevPosition)
+		if (m_target.position != m_PrevPosition)
 		{
 			m_OnValueChanged.Invoke(normalizedPosition);
 			UpdatePrevData();
@@ -193,23 +197,24 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 
 	private void UpdatePrevData()
 	{
-		if (m_Target == null)
-			m_PrevPosition = Vector2.zero;
+		if (m_target == null)
+			m_PrevPosition = Vector3.zero;
 		else
-			m_PrevPosition = TargetPosition;
+			m_PrevPosition = m_target.position;
 	}
 
 
-	public Vector2 normalizedPosition
+	public Vector3 normalizedPosition
 	{
 		get
 		{
-			return new Vector2(horizontalNormalizedPosition, verticalNormalizedPosition);
+			return new Vector3(horizontalNormalizedPosition, verticalNormalizedPosition);
 		}
 		set
 		{
 			SetNormalizedPosition(value.x, 0);
 			SetNormalizedPosition(value.y, 1);
+			SetNormalizedPosition(value.z, 2);
 		}
 	}
 
@@ -217,7 +222,7 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 	{
 		get
 		{
-			return m_Target.localPosition.x;
+			return m_target.localPosition.x;
 		}
 		set
 		{
@@ -229,29 +234,27 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 	{
 		get
 		{
-			return m_Target.localPosition.z;
+			return m_target.localPosition.z;
 		}
 		set
 		{
-			SetNormalizedPosition(value, 1);
+			SetNormalizedPosition(value, 2);
 		}
 	}
 
 	private void SetHorizontalNormalizedPosition(float value) { SetNormalizedPosition(value, 0); }
-	private void SetVerticalNormalizedPosition(float value) { SetNormalizedPosition(value, 1); }
+	private void SetVerticalNormalizedPosition(float value) { SetNormalizedPosition(value, 2); }
 
 	private void SetNormalizedPosition(float value, int axis)
 	{
-		axis = (axis == 1) ? 2 : axis;
-
 		// The new content localPosition, in the space of the view.
-		float newLocalPosition = m_Target.localPosition[axis];
+		float newLocalPosition = m_target.localPosition[axis];
 
-		Vector3 localPosition = m_Target.localPosition;
+		Vector3 localPosition = m_target.localPosition;
 		if (Mathf.Abs(localPosition[axis] - newLocalPosition) > 0.01f)
 		{
 			localPosition[axis] = newLocalPosition;
-			m_Target.localPosition = localPosition;
+			m_target.localPosition = localPosition;
 			m_Velocity[axis] = 0;
 		}
 	}
