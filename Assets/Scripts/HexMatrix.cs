@@ -6,20 +6,28 @@ using System.Collections.Generic;
 
 public class HexMatrix : MonoBehaviour {
 
-	private int [,] typemat = new int[,]
+	// Galilei
+	// http://www.escapefromthealiensinouterspace.com/imgs/maps/galilei.jpg
+	private int[,] typemat = new int[,]
 	{
-		{2,1,2,0,0,0,0,0,2,1,2},
-		{1,5,1,0,1,1,1,0,1,5,1},
-		{1,1,1,0,0,0,0,0,1,1,1},
-		{0,0,0,0,1,0,1,0,0,0,0},
-		{0,0,0,0,0,4,0,0,0,0,0},
-		{2,0,1,2,2,2,2,2,1,0,2},
-		{0,1,0,0,0,3,0,0,0,1,0},
-		{0,0,0,0,0,0,0,0,0,0,0},
-		{0,1,0,0,1,1,1,0,0,1,0},
-		{1,5,1,0,0,0,0,0,1,5,1},
-		{1,1,1,0,1,1,1,0,1,1,1}
+		{2,1,0,2,2,0,1,0,0,0,1,1,1,1,2,0,0,0,2,2,0,0,2},
+		{1,5,1,1,0,1,1,0,1,1,0,0,0,1,1,1,1,1,1,1,1,5,1},
+		{1,1,1,1,1,1,1,0,1,1,1,1,1,0,2,0,1,1,2,2,1,1,0},
+		{0,1,1,2,1,1,1,1,1,1,1,0,1,1,2,0,0,0,1,2,1,1,0},
+		{0,0,1,1,1,1,1,2,1,1,0,1,0,1,0,1,1,1,1,1,0,1,0},
+		{0,1,1,2,1,1,1,1,2,1,1,4,1,1,1,1,0,0,1,1,1,1,0},
+		{2,2,1,2,2,1,0,0,1,2,2,2,2,2,1,1,1,0,1,0,1,2,2},
+		{2,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,0,1,0,1,0,2},
+		{0,1,1,1,1,1,1,1,0,1,0,0,0,1,0,1,1,1,1,2,1,1,1},
+		{0,0,1,0,1,0,1,2,1,1,1,1,1,1,1,1,1,2,2,2,1,1,0},
+		{0,1,1,1,1,1,1,2,1,1,0,0,0,1,1,1,0,2,2,1,1,1,0},
+		{0,1,1,1,0,2,0,1,2,2,1,1,1,1,1,0,1,0,1,1,0,1,0},
+		{0,5,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,5,1},
+		{1,1,0,0,2,2,0,0,0,0,1,0,1,0,0,1,0,2,2,0,1,1,1}
 	};
+
+	private const int m_size_y = 14;
+	private const int m_size_x = 23;
 
 	private Hexagon[,] cells;
 
@@ -60,7 +68,6 @@ public class HexMatrix : MonoBehaviour {
 		public SpecialSectorType sector_action;
 	}
 
-	private int m_mapSize = 0;
 	private GameState m_state;
 
 	private Hexagon.Position AlienSpawnPosition;
@@ -125,8 +132,7 @@ public class HexMatrix : MonoBehaviour {
 
 		m_random = new System.Random((int)DateTime.Now.Ticks & 0x0000FFFF);
 
-		m_mapSize = (int) Mathf.Sqrt(typemat.Length);
-		cells = new Hexagon[m_mapSize, m_mapSize];
+		cells = new Hexagon[m_size_y, m_size_x];
 
 		if (textures.Length < (int) Hexagon.Type.Count)
 		{
@@ -146,10 +152,10 @@ public class HexMatrix : MonoBehaviour {
 		AlienSpawnPosition = new Hexagon.Position(-1, -1);
 		HumanSpawnPosition = new Hexagon.Position(-1, -1);
 
-		Vector2 halfsize = stride * m_mapSize * -0.5f;
+		Vector2 halfsize = new Vector2(stride.x * m_size_x, stride.y * m_size_y) * -0.5f;
 		int hatchNum = 0;
-		for(int y = 0; y < m_mapSize; ++y) {
-			for(int x = 0; x < m_mapSize; ++x)
+		for(int y = 0; y < m_size_y; ++y) {
+			for(int x = 0; x < m_size_x; ++x)
 			{
 				GameObject mesh = (GameObject) Instantiate(HexagonPrefab);
 				Hexagon.Position hexpos = new Hexagon.Position(x, y);
@@ -264,9 +270,9 @@ public class HexMatrix : MonoBehaviour {
 	private bool IsWalkeable(Hexagon.Position position)
 	{
 		return position.x >= 0
-			&& position.x < m_mapSize
+			&& position.x < m_size_x
 			&& position.y >= 0
-			&& position.y < m_mapSize 
+			&& position.y < m_size_y
 			&&(typemat[position.y, position.x] == (int)Hexagon.Type.CleanSector
 			|| typemat[position.y, position.x] == (int)Hexagon.Type.SpecialSector
 			|| typemat[position.y, position.x] == (int)Hexagon.Type.EscapeHatch);
@@ -294,8 +300,8 @@ public class HexMatrix : MonoBehaviour {
 	private void SetupNewTurn()
 	{
 		Hexagon.Position pos = new Hexagon.Position(0, 0);
-		for (pos.y = 0; pos.y < m_mapSize; ++pos.y)
-			for (pos.x = 0; pos.x < m_mapSize; ++pos.x) {
+		for (pos.y = 0; pos.y < m_size_y; ++pos.y)
+			for (pos.x = 0; pos.x < m_size_x; ++pos.x) {
 					cells[pos.y, pos.x].highlight = Hexagon.Highlight.None;
 					cells[pos.y, pos.x].interactable = false;
 				}
@@ -408,8 +414,8 @@ public class HexMatrix : MonoBehaviour {
 			{
 				m_click = new Hexagon.Position(-1, -1);
 				Hexagon.Position pos = new Hexagon.Position(0, 0);
-				for (pos.y = 0; pos.y < m_mapSize; ++pos.y)
-					for (pos.x = 0; pos.x < m_mapSize; ++pos.x)
+				for (pos.y = 0; pos.y < m_size_y; ++pos.y)
+					for (pos.x = 0; pos.x < m_size_x; ++pos.x)
 						if (IsWalkeable(pos))
 							cells[pos.y, pos.x].interactable = true;
 			}
