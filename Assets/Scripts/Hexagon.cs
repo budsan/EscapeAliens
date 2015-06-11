@@ -5,6 +5,7 @@ using System;
 
 public class Hexagon : Selectable {
 
+	[Serializable]
 	public struct Position : IComparable
 	{
 		public int x;
@@ -76,15 +77,23 @@ public class Hexagon : Selectable {
 		Current = 1,
 	}
 
+	[SerializeField]
 	public TextMesh m_hexText;
+
+	[SerializeField]
 	private HexMatrix m_parent;
+
+	[SerializeField]
 	private Position m_pos;
+
+	[SerializeField]
 	private Type m_type = Type.Hollow;
 
 	[SerializeField]
 	private Highlight m_highlight = Highlight.None;
 	public Highlight highlight { get { return m_highlight; } set { m_highlight = value; OnSetProperty(); } }
 
+	[SerializeField]
 	private Renderer m_childRenderer = null;
 
 	void Awake ()
@@ -94,12 +103,15 @@ public class Hexagon : Selectable {
 		{
 			m_childRenderer = childTransform.GetComponent<Renderer>();
 		}
-
-		enabled = false;
 	}
 
-	public void Init(HexMatrix parent, Position position, Type type, Texture texture, string hexText)
+	//This only should run in editor time
+	public void Init(HexMatrix parent, Position position, Type type, Material material, string hexText)
 	{
+		Transform childTransform = transform.Find("Mesh");
+		if (m_childRenderer == null && childTransform != null)
+			m_childRenderer = childTransform.GetComponent<Renderer>();
+
 		m_parent = parent;
 		m_pos = position;
 		m_type = (Type) type;
@@ -109,22 +121,32 @@ public class Hexagon : Selectable {
 			interactable = false;
 			if (m_childRenderer != null)
 				m_childRenderer.enabled = false;
+
+			if (m_hexText != null)
+				m_hexText.GetComponent<Renderer>().enabled = false;
 		}
-		else if (m_childRenderer != null)
-			m_childRenderer.material.mainTexture = texture;
+			
+		if(m_childRenderer != null)
+			m_childRenderer.material = material;
+
+		OnSetProperty();
 
 		if (m_hexText != null)
 		{
 			m_hexText.text = hexText;
-		}
-
-		
-
-		enabled = true;
+			Color textColor = m_currentColor * 0.25f;
+			textColor.a = 1.0f;
+			m_hexText.color = textColor;
+		}	
 	}
 
+	[SerializeField]
 	private Color m_typeColor = Color.black;
+
+	[SerializeField]
 	private Color m_currentColor = Color.black;
+
+	[SerializeField]
 	private Color m_targetColor = Color.black;
 
 	protected void DoColorTransition(Color targetColor, bool instant)

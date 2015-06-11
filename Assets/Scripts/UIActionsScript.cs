@@ -60,6 +60,7 @@ public class UIActionsScript : MonoBehaviour {
 			return;
 
 		int turnCount = GameLogic.TurnCount();
+		int player = GameLogic.PlayerTurn();
 		HexMatrix.SpecialSectorType type = GameLogic.CurrentSectorAction();
 
 		if (MoveButton != null) {
@@ -80,22 +81,22 @@ public class UIActionsScript : MonoBehaviour {
 		if (type == HexMatrix.SpecialSectorType.None)
 		{
 			if (GameLogic.IsHumanPlaying())
-				SetDescription("HUMAN: Select a sector and move");
+				SetDescription("Player " + player + ". Turn " + turnCount + ". HUMAN: Select a sector and move");
 			else
-				SetDescription("ALIEN: Select a sector and move or attack");
+				SetDescription("Player " + player + ". Turn " + turnCount + ". ALIEN: Select a sector and move or attack");
 		}
 		else
 		{
 			switch(type)
 			{
 				case HexMatrix.SpecialSectorType.NoiseInYourSector:
-					SetDescription("Noise in your sector. Notify other Players.");
+					SetDescription("Noise in your sector. Press Noise to end your turn.");
 					break;
 				case HexMatrix.SpecialSectorType.NoiseInAnySector:
-					SetDescription("Noise in any sector. Select a sector and notify other Players.");
+					SetDescription("Noise in any sector. Select a sector and press Noise to end your turn.");
 					break;
 				case HexMatrix.SpecialSectorType.SilenceInAllSectors:
-					SetDescription("Silence in all sectors. Notify other Players.");
+					SetDescription("Silence in all sectors. Press Noise to end your turn.");
 					break;
 			}
 		}

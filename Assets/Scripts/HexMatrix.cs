@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEditor;
 using System;
 using System.Text;
 using System.Collections;
@@ -29,13 +30,31 @@ public class HexMatrix : MonoBehaviour {
 	private const int m_size_y = 14;
 	private const int m_size_x = 23;
 
-	private Hexagon[,] cells;
+	public bool buildInEditor = false;
 
+	[SerializeField]
 	public int numPlayers = 4;
+
+	[SerializeField]
 	public GameObject HexagonPrefab;
+
+	[SerializeField]
 	public Vector2 stride = new Vector2(1.50f, 1.70f);
-	public Texture[] textures;
+
+	[SerializeField]
+	public Material[] material;
+
+	[SerializeField]
 	public UnityEngine.UI.Text LogText;
+
+	[SerializeField]
+	private Hexagon[,] cells = null;
+
+	[SerializeField]
+	private Hexagon.Position AlienSpawnPosition = new Hexagon.Position(-1, -1);
+
+	[SerializeField]
+	private Hexagon.Position HumanSpawnPosition = new Hexagon.Position(-1, -1);
 
 	public enum SpecialSectorType
 	{
@@ -70,9 +89,6 @@ public class HexMatrix : MonoBehaviour {
 
 	private GameState m_state;
 
-	private Hexagon.Position AlienSpawnPosition;
-	private Hexagon.Position HumanSpawnPosition;
-
 	private System.Random m_random;
 
 	private Hexagon.Position m_click = new Hexagon.Position(-1, -1);
@@ -98,7 +114,14 @@ public class HexMatrix : MonoBehaviour {
 
 	public int TurnCount()
 	{
-		return m_state.turn_count;
+		try
+		{
+			return (m_state.turn_count / m_state.players.Length) + 1;
+		}
+		catch
+		{
+			return 1;
+		}
 	}
 
 	public int PlayerTurn()
@@ -108,7 +131,14 @@ public class HexMatrix : MonoBehaviour {
 
 	public bool IsHumanPlaying()
 	{
-		return m_state.players[m_state.player_turn].type == GameState.Player.Type.Human;
+		try
+		{
+			return m_state.players[m_state.player_turn].type == GameState.Player.Type.Human;
+		}
+		catch
+		{
+			return false;
+		}
 	}
 
 	public SpecialSectorType CurrentSectorAction()
@@ -121,57 +151,74 @@ public class HexMatrix : MonoBehaviour {
 		return m_state.players[m_state.player_turn].position;
 	}
 
-	// Use this for initialization
-	void Start ()
+	bool CheckMap()
 	{
-		if (LogText != null)
-			LogText.text = "";
+		try
+		{
+			if (cells == null)
+				return false;
 
-		if (HexagonPrefab == null)
-			Debug.LogError("No prefab assigned for creating playground.");
+			for (int y = 0; y < m_size_y; ++y)
+			{
+				for (int x = 0; x < m_size_x; ++x)
+				{
+					if (cells[y, x] == null)
+						return false;
+				}
+			}
+		}
+		catch(Exception ex)
+		{
+			Debug.Log("CheckMap: " + ex.Message);
+			return false;
+		}
 
-		m_random = new System.Random((int)DateTime.Now.Ticks & 0x0000FFFF);
+		return true;
+	}
 
+	//This only should run in editor time
+	void Init()
+	{
 		cells = new Hexagon[m_size_y, m_size_x];
 
-		if (textures.Length < (int) Hexagon.Type.Count)
+		if (material.Length < (int)Hexagon.Type.Count)
 		{
 			Debug.LogError("You must set at least " + (int)Hexagon.Type.Count + " textures.");
 			return;
 		}
 
-		for (int i = 0; i < (int) Hexagon.Type.Count; i++)
+		for (int i = 0; i < (int)Hexagon.Type.Count; i++)
 		{
-			if (textures[i] == null)
+			if (material[i] == null)
 			{
 				Debug.LogError("You must set all textures. Your texture " + i + " isn't set.");
 				return;
 			}
 		}
 
+		if (HexagonPrefab == null)
+		{
+			Debug.LogError("No prefab assigned for creating playground.");
+			return;
+		}
+		
 		AlienSpawnPosition = new Hexagon.Position(-1, -1);
 		HumanSpawnPosition = new Hexagon.Position(-1, -1);
 
 		Vector2 halfsize = new Vector2(stride.x * m_size_x, stride.y * m_size_y) * -0.5f;
 		int hatchNum = 0;
-		for(int y = 0; y < m_size_y; ++y) {
-			for(int x = 0; x < m_size_x; ++x)
+		for (int y = 0; y < m_size_y; ++y)
+		{
+			for (int x = 0; x < m_size_x; ++x)
 			{
-				GameObject mesh = (GameObject) Instantiate(HexagonPrefab);
-				Hexagon.Position hexpos = new Hexagon.Position(x, y);
-				
-				mesh.name = "Hex " + hexpos.ToString();
-				mesh.transform.SetParent (transform, false);
-				mesh.transform.localPosition = new Vector3(x * stride.x + halfsize.x, 0, -y * stride.y - halfsize.y + (x % 2) * 0.5f * -stride.y);
-
-				Hexagon cell = mesh.GetComponent<Hexagon>();
-				cells[y, x] = mesh.GetComponent<Hexagon>();
 				int type = typemat[y, x];
-				if (type < (int) Hexagon.Type.Count)
+				if (type < (int)Hexagon.Type.Count)
 				{
-					string hexName = ""; 
-					Hexagon.Type hexType = (Hexagon.Type) type;
-					switch(hexType)
+					Hexagon.Position hexpos = new Hexagon.Position(x, y);
+					string hexName = "";
+
+					Hexagon.Type hexType = (Hexagon.Type)type;
+					switch (hexType)
 					{
 						case Hexagon.Type.CleanSector:
 							hexName = hexpos.ToString();
@@ -180,6 +227,7 @@ public class HexMatrix : MonoBehaviour {
 							hexName = hexpos.ToString();
 							break;
 						case Hexagon.Type.Hollow:
+							
 							break;
 						case Hexagon.Type.HumanSpawn:
 							if (HumanSpawnPosition.x < 0)
@@ -200,7 +248,23 @@ public class HexMatrix : MonoBehaviour {
 							break;
 					}
 
-					cell.Init(this, hexpos, (Hexagon.Type)type, textures[type], hexName);
+					string gameObjectName = "Hex " + hexpos.ToString();	
+					Transform meshTransform = transform.Find(gameObjectName);
+					GameObject mesh;
+					if (meshTransform != null)
+						mesh = meshTransform.gameObject;
+					else
+						mesh = (GameObject) Instantiate(HexagonPrefab);
+					
+					mesh.name = "Hex " + hexpos.ToString();
+					mesh.transform.SetParent(transform, false);
+					mesh.transform.SetAsLastSibling();
+					mesh.transform.localPosition = new Vector3(x * stride.x + halfsize.x, 0, -y * stride.y - halfsize.y + (x % 2) * 0.5f * -stride.y);
+
+					Hexagon cell = mesh.GetComponent<Hexagon>();
+					cells[y, x] = mesh.GetComponent<Hexagon>();
+
+					cell.Init(this, hexpos, (Hexagon.Type)type, material[type], hexName);
 					cell.enabled = true;
 					cell.interactable = false;
 				}
@@ -218,7 +282,38 @@ public class HexMatrix : MonoBehaviour {
 			Debug.Log("No Alien spawn found. The map is invalid.");
 			return;
 		}
+	}
 
+	void OnValidate()
+	{
+		if (buildInEditor && !CheckMap())
+			Init();
+
+		if (!buildInEditor)
+		{
+			foreach (Transform child in transform)
+				Destroy(child.gameObject);
+
+			cells = null;
+		}
+	}
+
+	// Use this for initialization
+	void Start ()
+	{
+		if (buildInEditor && !CheckMap())
+		{
+			Debug.LogError("Checkmap not passed.");
+			return;
+		}
+
+		if (!buildInEditor)
+			Init();
+			
+		if (LogText != null)
+			LogText.text = "";
+
+		m_random = new System.Random((int)DateTime.Now.Ticks & 0x0000FFFF);
 		m_state = new GameState();
 
 		if (numPlayers < 2)
@@ -349,7 +444,7 @@ public class HexMatrix : MonoBehaviour {
 		builder.Append("[P");
 		builder.Append((m_state.player_turn + 1).ToString());
 		builder.Append(":T");
-		builder.Append(m_state.turn_count / m_state.players.Length);
+		builder.Append((m_state.turn_count / m_state.players.Length) + 1);
 		builder.Append("] ");
 
 		switch(m_state.sector_action)
@@ -402,7 +497,7 @@ public class HexMatrix : MonoBehaviour {
 				builder.Append("[P");
 				builder.Append((m_state.player_turn + 1).ToString());
 				builder.Append(":T");
-				builder.Append(m_state.turn_count / m_state.players.Length);
+				builder.Append((m_state.turn_count / m_state.players.Length) + 1);
 				builder.Append("] ");
 				builder.Append("Moved to safe sector.");
 
@@ -411,12 +506,16 @@ public class HexMatrix : MonoBehaviour {
 			}
 			else
 			{
+				bool interactable = (m_state.sector_action == SpecialSectorType.NoiseInAnySector);
 				m_click = new Hexagon.Position(-1, -1);
 				Hexagon.Position pos = new Hexagon.Position(0, 0);
 				for (pos.y = 0; pos.y < m_size_y; ++pos.y)
 					for (pos.x = 0; pos.x < m_size_x; ++pos.x)
 						if (IsWalkeable(pos))
-							cells[pos.y, pos.x].interactable = true;
+							cells[pos.y, pos.x].interactable = interactable;
+
+				if (m_state.sector_action == SpecialSectorType.NoiseInYourSector)
+					cells[m_state.position_to_move.y, m_state.position_to_move.x].interactable = true;
 			}
 		}
 	}

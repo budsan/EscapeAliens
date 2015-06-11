@@ -6,14 +6,7 @@ using System;
 
 public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeginDragHandler, IEndDragHandler, IDragHandler, IScrollHandler
 {
-	[Serializable]
-	public class ScrollCameraEvent : UnityEvent<Vector3> { }
-
 	private Transform m_target = null;
-
-	[SerializeField]
-	private float m_TargetScale = 0.1f;
-	public float targetScale { get { return m_TargetScale; } set { m_TargetScale = value; } }
 
 	[SerializeField]
 	private bool m_Inertia = true;
@@ -26,10 +19,6 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 	[SerializeField]
 	private float m_ScrollSensitivity = 1.0f;
 	public float scrollSensitivity { get { return m_ScrollSensitivity; } set { m_ScrollSensitivity = value; } }
-
-	[SerializeField]
-	private ScrollCameraEvent m_OnValueChanged = new ScrollCameraEvent();
-	public ScrollCameraEvent onValueChanged { get { return m_OnValueChanged; } set { m_OnValueChanged = value; } }
 
 	// The offset from handle position to mouse down position
 	private Vector3 m_PointerStartLocalCursor = Vector3.zero;
@@ -123,7 +112,6 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 			return;
 
 		Camera camera = eventData.pressEventCamera;
-		Vector3 contentCurrentPosition = m_target.position;
 		camera.transform.position = m_ContentStartPosition;
 
 		Plane plane = new Plane(transform.up, transform.position);
@@ -184,13 +172,12 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 
 		if (m_Dragging && m_Inertia)
 		{
-			Vector3 newVelocity = (m_target.position - m_PrevPosition) / (deltaTime * targetScale);
+			Vector3 newVelocity = (m_target.position - m_PrevPosition) / deltaTime;
 			m_Velocity = Vector3.Lerp(m_Velocity, newVelocity, deltaTime);
 		}
 
 		if (m_target.position != m_PrevPosition)
 		{
-			m_OnValueChanged.Invoke(normalizedPosition);
 			UpdatePrevData();
 		}
 	}
@@ -201,66 +188,5 @@ public class ScrollCamera : MonoBehaviour, IInitializePotentialDragHandler, IBeg
 			m_PrevPosition = Vector3.zero;
 		else
 			m_PrevPosition = m_target.position;
-	}
-
-
-	public Vector3 normalizedPosition
-	{
-		get
-		{
-			return new Vector3(horizontalNormalizedPosition, verticalNormalizedPosition);
-		}
-		set
-		{
-			SetNormalizedPosition(value.x, 0);
-			SetNormalizedPosition(value.y, 1);
-			SetNormalizedPosition(value.z, 2);
-		}
-	}
-
-	public float horizontalNormalizedPosition
-	{
-		get
-		{
-			return m_target.localPosition.x;
-		}
-		set
-		{
-			SetNormalizedPosition(value, 0);
-		}
-	}
-
-	public float verticalNormalizedPosition
-	{
-		get
-		{
-			return m_target.localPosition.z;
-		}
-		set
-		{
-			SetNormalizedPosition(value, 2);
-		}
-	}
-
-	private void SetHorizontalNormalizedPosition(float value) { SetNormalizedPosition(value, 0); }
-	private void SetVerticalNormalizedPosition(float value) { SetNormalizedPosition(value, 2); }
-
-	private void SetNormalizedPosition(float value, int axis)
-	{
-		// The new content localPosition, in the space of the view.
-		float newLocalPosition = m_target.localPosition[axis];
-
-		Vector3 localPosition = m_target.localPosition;
-		if (Mathf.Abs(localPosition[axis] - newLocalPosition) > 0.01f)
-		{
-			localPosition[axis] = newLocalPosition;
-			m_target.localPosition = localPosition;
-			m_Velocity[axis] = 0;
-		}
-	}
-
-	private static float RubberDelta(float overStretching, float viewSize)
-	{
-		return (1 - (1 / ((Mathf.Abs(overStretching) * 0.55f / viewSize) + 1))) * viewSize * Mathf.Sign(overStretching);
 	}
 }

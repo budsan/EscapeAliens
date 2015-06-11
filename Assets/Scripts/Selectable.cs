@@ -105,7 +105,6 @@ public class Selectable
 	public Selectable FindSelectable(Vector3 dir)
 	{
 		dir = dir.normalized;
-		Vector3 localDir = Quaternion.Inverse(transform.rotation) * dir;
 		Vector3 pos = transform.position;
 		float maxScore = Mathf.NegativeInfinity;
 		Selectable bestPick = null;
