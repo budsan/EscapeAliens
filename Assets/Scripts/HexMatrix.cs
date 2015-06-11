@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using UnityEditor;
 using System;
 using System.Text;
 using System.Collections;
@@ -291,6 +290,7 @@ public class HexMatrix : MonoBehaviour {
 
 		if (!buildInEditor)
 		{
+#if UNITY_EDITOR
 			foreach (Transform child in transform)
 			{
 				GameObject toDestroy = child.gameObject;
@@ -298,8 +298,7 @@ public class HexMatrix : MonoBehaviour {
 					DestroyImmediate(toDestroy);
 				};
 			}
-				
-
+#endif
 			cells = null;
 		}
 	}
