@@ -16,7 +16,7 @@ public class TogglePivot : MonoBehaviour
 		Toggled = !Toggled;
 	}
 
-	void Start()
+	virtual protected void Start()
 	{
 		m_rect = GetComponent<RectTransform>();
 
@@ -26,7 +26,7 @@ public class TogglePivot : MonoBehaviour
 			m_currentPosition = UntoggledPosition;
 	}
 	
-	void FixedUpdate ()
+	virtual protected void FixedUpdate ()
 	{
 		if (Toggled)
 			m_currentPosition = Vector2.Lerp(m_currentPosition, ToggledPosition, BlendSpeed);

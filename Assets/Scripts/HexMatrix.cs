@@ -44,6 +44,9 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 	private Hexagon[,] cells = null;
 	private GameState m_state = new GameState();
 
+	private bool m_newTurn = false;
+	public bool NewTurn { get { return m_newTurn; } }
+
 	private GameState.Position m_click = new GameState.Position(-1, -1);
 	private GameState.Position m_highlighted = new GameState.Position(-1, -1);
 
@@ -179,6 +182,20 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 				cells[pos.y, pos.x].interactable = false;
 			}
 
+		m_newTurn = true;
+		Debug.Log("OnNewTurn");
+	}
+
+	public void TurnSpecialSectorMove()
+	{
+		m_state.TurnSpecialSectorMoveOn(m_click);
+	}
+
+	public void SetupNewTurn()
+	{
+		if (!m_newTurn)
+			return;
+
 		GameState.Player currentPlayer = m_state.CurrentPlayer;
 		m_highlighted = currentPlayer.position;
 		cells[m_highlighted.y, m_highlighted.x].highlight = Hexagon.Highlight.Current;
@@ -187,11 +204,16 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 			cells[position.y, position.x].interactable = true;
 
 		m_click = new GameState.Position(-1, -1);
+
+		m_newTurn = false;
+		Debug.Log("SetupNewTurn");
 	}
 
-	public void TurnSpecialSectorMove()
+	public void TurnAttack()
 	{
-		m_state.TurnSpecialSectorMoveOn(m_click);
+		if (m_click.x < 0)
+			return;
+
 	}
 
 	public void TurnMove()
