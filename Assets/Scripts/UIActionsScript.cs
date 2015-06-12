@@ -59,26 +59,26 @@ public class UIActionsScript : MonoBehaviour {
 		if (GameLogic == null)
 			return;
 
-		int turnCount = GameLogic.TurnCount();
+		int turnCount = GameLogic.CurrentRound();
 		int player = GameLogic.PlayerTurn();
-		HexMatrix.SpecialSectorType type = GameLogic.CurrentSectorAction();
+		GameState.SectorState type = GameLogic.CurrentSectorState();
 
 		if (MoveButton != null) {
-			MoveButton.interactable = GameLogic.ValidSectorSelected() && type == HexMatrix.SpecialSectorType.None;
+			MoveButton.interactable = GameLogic.ValidSectorSelected() && type == GameState.SectorState.None;
 		}
 
 		if (AttackButton != null) {
-			AttackButton.interactable = !GameLogic.IsHumanPlaying() && GameLogic.ValidSectorSelected() && type == HexMatrix.SpecialSectorType.None;;
+			AttackButton.interactable = !GameLogic.IsHumanPlaying() && GameLogic.ValidSectorSelected() && type == GameState.SectorState.None;;
 		}
 
 		if (NotifyButton != null) {
 			NotifyButton.interactable =
-				(type == HexMatrix.SpecialSectorType.NoiseInAnySector && GameLogic.ValidSectorSelected())
-				|| (type == HexMatrix.SpecialSectorType.NoiseInYourSector)
-				|| (type == HexMatrix.SpecialSectorType.SilenceInAllSectors);
+				(type == GameState.SectorState.OnNoiseInAnySector && GameLogic.ValidSectorSelected())
+				|| (type == GameState.SectorState.OnNoiseInYourSector)
+				|| (type == GameState.SectorState.OnSilenceInAllSectors);
 		}
 
-		if (type == HexMatrix.SpecialSectorType.None)
+		if (type == GameState.SectorState.None)
 		{
 			if (GameLogic.IsHumanPlaying())
 				SetDescription("Player " + player + ". Turn " + turnCount + ". HUMAN: Select a sector and move");
@@ -89,13 +89,13 @@ public class UIActionsScript : MonoBehaviour {
 		{
 			switch(type)
 			{
-				case HexMatrix.SpecialSectorType.NoiseInYourSector:
+				case GameState.SectorState.OnNoiseInYourSector:
 					SetDescription("Noise in your sector. Press Noise to end your turn.");
 					break;
-				case HexMatrix.SpecialSectorType.NoiseInAnySector:
+				case GameState.SectorState.OnNoiseInAnySector:
 					SetDescription("Noise in any sector. Select a sector and press Noise to end your turn.");
 					break;
-				case HexMatrix.SpecialSectorType.SilenceInAllSectors:
+				case GameState.SectorState.OnSilenceInAllSectors:
 					SetDescription("Silence in all sectors. Press Noise to end your turn.");
 					break;
 			}

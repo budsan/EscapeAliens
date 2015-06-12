@@ -5,72 +5,6 @@ using System;
 
 public class Hexagon : Selectable {
 
-	[Serializable]
-	public struct Position : IComparable
-	{
-		public int x;
-		public int y;
-
-		public Position(int _x, int _y) 
-		{
-			x = _x;
-			y = _y;
-		}
-
-		const string lut = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-		public override string ToString()
-		{
-			string name = "";
-			int ix = x;
-			for (;;)
-			{
-				int next = ix / lut.Length;
-				int curr = ix % lut.Length;
-				name += lut[curr];
-				if (next == 0)
-					break;
-
-				ix = next;
-			}
-
-			name += (y+1).ToString("D2");
-			return name;
-		}
-
-		public override bool Equals(object obj)
-		{
-			if (!(obj is Position)) return false;
-
-			Position p = (Position) obj;
-			return p.x == x && p.y == y;
-		}
-
-		public override int GetHashCode()
-		{
-			return (((x << 5) + x) ^ y);
-		}
-
-		public int CompareTo(object obj)
-		{
-			if (!(obj is Position)) return -1;
-
-			Position p = (Position) obj;
-			int compare_x = x.CompareTo(p.x);
-			return compare_x == 0 ? y.CompareTo(p.y) : compare_x;
-		}
-	}
-
-	public enum Type
-	{
-		CleanSector = 0,
-		SpecialSector = 1,
-		Hollow = 2,
-		HumanSpawn = 3,
-		AlienSpawn = 4,
-		EscapeHatch = 5,
-		Count = 6
-	}
-
 	public enum Highlight
 	{
 		None = 0,
@@ -84,10 +18,10 @@ public class Hexagon : Selectable {
 	private HexMatrix m_parent;
 
 	[SerializeField]
-	private Position m_pos;
+	private GameState.Position m_pos;
 
 	[SerializeField]
-	private Type m_type = Type.Hollow;
+	private GameState.CellType m_type = GameState.CellType.Hollow;
 
 	[SerializeField]
 	private Highlight m_highlight = Highlight.None;
@@ -105,8 +39,7 @@ public class Hexagon : Selectable {
 		}
 	}
 
-	//This only should run in editor time
-	public void Init(HexMatrix parent, Position position, Type type, Material material, string hexText)
+	public void Init(HexMatrix parent, GameState.Position position, GameState.CellType type, Material material, string hexText)
 	{
 		Transform childTransform = transform.Find("Mesh");
 		if (m_childRenderer == null && childTransform != null)
@@ -114,9 +47,9 @@ public class Hexagon : Selectable {
 
 		m_parent = parent;
 		m_pos = position;
-		m_type = (Type) type;
+		m_type = (GameState.CellType) type;
 
-		if (m_type == Type.Hollow)
+		if (m_type == GameState.CellType.Hollow)
 		{
 			interactable = false;
 			if (m_childRenderer != null)
