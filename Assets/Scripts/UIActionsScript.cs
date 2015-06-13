@@ -4,7 +4,7 @@ using System.Collections;
 public class UIActionsScript : TogglePivot {
 
 	public HexMatrix GameLogic;
-	public TogglePivot MoreActions;
+	public GameObject MoreActions;
 	public Camera camera;
 	public UnityEngine.UI.Button MoveButton;
 	public UnityEngine.UI.Button AttackButton;
@@ -91,7 +91,7 @@ public class UIActionsScript : TogglePivot {
 		int player = GameLogic.PlayerTurn() + 1;
 		Toggled = !GameLogic.NewTurn;
 		if (MoreActions != null)
-			MoreActions.Toggled = Toggled;
+			MoreActions.SetActive(!Toggled);
 
 		if (!Toggled)
 			SetDescription("Waiting player " + player + " for new turn.");
