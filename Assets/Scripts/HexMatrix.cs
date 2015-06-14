@@ -213,7 +213,6 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 	{
 		if (m_click.x < 0)
 			return;
-
 	}
 
 	public void TurnMove()

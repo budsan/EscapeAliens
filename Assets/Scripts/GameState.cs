@@ -286,30 +286,40 @@ public class GameState
 		currentWalkablePositions.Add(currentPlayer.position);
 		for (int i = 0; i < steps; i++)
 		{
-			HashSet<GameState.Position> positions = new HashSet<GameState.Position>();
-			foreach (GameState.Position position in currentWalkablePositions)
+			HashSet<Position> positions = new HashSet<Position>();
+			foreach (Position position in currentWalkablePositions)
 				AddNeighboursHexagons(position, positions);
 
-			foreach (GameState.Position position in positions)
+			foreach (Position position in positions)
 				currentWalkablePositions.Add(position);
 		}
 
 		currentWalkablePositions.Remove(currentPlayer.position);
-		sector_action = GameState.SectorState.None;
+		sector_action = SectorState.None;
 
 		foreach (GameStateListener listener in listeners)
 			listener.OnNewTurn();
 	}
 
-	private void InternalMoveOn(GameState.Position position)
+	private void NextTurn()
 	{
-		players[player_turn].position = position;
-		player_turn = (player_turn + 1) % players.Length;
-		turn_count++;
+		do
+		{
+			player_turn = (player_turn + 1) % players.Length;
+			turn_count++;
+		}
+		while (!players[player_turn].alive);
+		
 		SetupNewTurn();
 	}
 
-	public void TurnSpecialSectorMoveOn(GameState.Position position)
+	private void InternalMoveOn(Position position)
+	{
+		players[player_turn].position = position;
+		NextTurn();
+	}
+
+	public void TurnSpecialSectorMoveOn(Position position)
 	{
 		StringBuilder builder = new StringBuilder();
 		builder.Append("[P"); builder.Append((player_turn + 1).ToString());
@@ -317,15 +327,15 @@ public class GameState
 
 		switch (sector_action)
 		{
-			case GameState.SectorState.None:
+			case SectorState.None:
 				break;
-			case GameState.SectorState.OnNoiseInYourSector:
+			case SectorState.OnNoiseInYourSector:
 				builder.Append("Noise in sector " + position_to_move.ToString());
 				break;
-			case GameState.SectorState.OnNoiseInAnySector:
+			case SectorState.OnNoiseInAnySector:
 				builder.Append("Noise in sector " + position.ToString());
 				break;
-			case GameState.SectorState.OnSilenceInAllSectors:
+			case SectorState.OnSilenceInAllSectors:
 				builder.Append("Silence in all sectors");
 				break;
 		}
@@ -334,31 +344,31 @@ public class GameState
 		InternalMoveOn(position_to_move);
 	}
 
-	public void TurnMoveOn(GameState.Position position)
+	public void TurnMoveOn(Position position)
 	{
-		if (sector_action != GameState.SectorState.None)
+		if (sector_action != SectorState.None)
 			return;
 
 		if (currentWalkablePositions.Contains(position))
 		{
-			GameState.CellType type = map[position.y, position.x];
+			CellType type = map[position.y, position.x];
 			switch (type)
 			{
-				case GameState.CellType.CleanSector:
+				case CellType.CleanSector:
 					break;
-				case GameState.CellType.SpecialSector:
+				case CellType.SpecialSector:
 					position_to_move = position;
 					int rand = random.Next(5);
 					if (rand == 0 || rand == 1)
-						sector_action = GameState.SectorState.OnNoiseInYourSector;
+						sector_action = SectorState.OnNoiseInYourSector;
 					else if (rand == 2 || rand == 3)
-						sector_action = GameState.SectorState.OnNoiseInAnySector;
+						sector_action = SectorState.OnNoiseInAnySector;
 					else
-						sector_action = GameState.SectorState.OnSilenceInAllSectors;
+						sector_action = SectorState.OnSilenceInAllSectors;
 					break;
 			}
 
-			if (type == GameState.CellType.CleanSector)
+			if (type == CellType.CleanSector)
 			{
 				StringBuilder builder = new StringBuilder();
 				builder.Append("[P"); builder.Append((player_turn + 1).ToString());
