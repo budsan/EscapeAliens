@@ -5,7 +5,7 @@ public class UIActionsScript : TogglePivot {
 
 	public HexMatrix GameLogic;
 	public GameObject MoreActions;
-	public Camera camera;
+	public Camera gameCamera;
 	public UnityEngine.UI.Button MoveButton;
 	public UnityEngine.UI.Button AttackButton;
 	public UnityEngine.UI.Button NotifyButton;
@@ -50,7 +50,8 @@ public class UIActionsScript : TogglePivot {
 
 	void AttackButtonClicked()
 	{
-
+		if (GameLogic != null)
+			GameLogic.TurnAttack();
 	}
 
 	void NotifyButtonClicked()
@@ -75,11 +76,11 @@ public class UIActionsScript : TogglePivot {
 	{
 		base.FixedUpdate();
 
-		if (!Toggled && camera != null)
+		if (!Toggled && gameCamera != null)
 		{
-			Vector3 position = camera.transform.position;
+			Vector3 position = gameCamera.transform.position;
 			Vector3 target = new Vector3(0, position.y, 0);
-			camera.transform.position = Vector3.Lerp(position, target, 0.1f);
+			gameCamera.transform.position = Vector3.Lerp(position, target, 0.1f);
 		}
 	}
 
@@ -88,13 +89,30 @@ public class UIActionsScript : TogglePivot {
 		if (GameLogic == null)
 			return;
 
+		int currentWinner = GameLogic.CurrentWinner();
 		int player = GameLogic.PlayerTurn() + 1;
 		Toggled = !GameLogic.NewTurn;
 		if (MoreActions != null)
 			MoreActions.SetActive(!Toggled);
 
 		if (!Toggled)
-			SetDescription("Waiting player " + player + " for new turn.");
+		{
+			switch (currentWinner)
+			{
+				case GameState.Winner.Aliens:
+					SetDescription("ALIENS WON.");
+					break;
+				case GameState.Winner.Humans:
+					SetDescription("HUMANS WON.");
+					break;
+				case GameState.Winner.None:
+					SetDescription("Waiting player " + player + " for new turn.");
+					break;
+				default:
+					SetDescription("PLAYER " + (currentWinner + 1) + " WON.");
+					break;
+			}		
+		}
 		else
 		{
 			int turnCount = GameLogic.CurrentRound();

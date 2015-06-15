@@ -78,6 +78,14 @@ public class GameState
 		Count = 6
 	}
 
+	public class Winner
+	{
+		public const int Player = 0;
+		public const int None = -1;
+		public const int Humans = -2;
+		public const int Aliens = -3;
+	}
+
 	public enum SectorState
 	{
 		None,
@@ -99,21 +107,95 @@ public class GameState
 		public bool alive;
 	}
 
+	public struct Hatch
+	{
+		public enum Type
+		{
+			Closed,
+			Damaged,
+			Blocked
+		}
+
+		public Type type;
+		public Position position;
+		public int Id;
+	}
+
+	public class Deck
+	{
+		private int[] cards;
+		private int curr;
+		private Random random;
+
+		public Deck()
+		{
+			cards = new int[1];
+			cards[0] = 0;
+			curr = 0;
+			random = null;
+		}
+
+		public Deck(int[] _cards, Random _random)
+		{
+			cards = _cards;
+			random = _random;
+			curr = 0;
+
+			if (cards.Length > 1)
+				Shuffle();
+		}
+
+		public int Next()
+		{
+			int next = cards[curr];
+			curr = curr + 1;
+			if (curr == cards.Length)
+			{
+				curr = 0;
+
+				if (cards.Length > 1)
+					Shuffle();
+			}
+
+			return next;
+		}
+
+		private void Shuffle()
+		{
+			int n = cards.Length;
+			while (n > 1)
+			{
+				n--;
+				int k = random.Next(n + 1);
+				int value = cards[k];
+				cards[k] = cards[n];
+				cards[n] = value;
+			}
+		}
+	}
+
 	public const int map_size_y = 14;
 	public const int map_size_x = 23;
 
 	private int numPlayers = 0;
+	private int numHumans = 0;
+	private int numAliens = 0;
+	private int winnerPlayer = Winner.None;
 	private CellType[,] map = new CellType[map_size_y, map_size_x];
 
 	private Player[] players = new Player[0];
 	private int player_turn = 0;
 	private int turn_count = 0;
 
+	private Dictionary<Position, Hatch> hatches = new Dictionary<Position, Hatch>();
+
 	private Position position_to_move = new Position(-1, -1);
 	private SectorState sector_action = SectorState.None;
 
 	private string log = "";
 	private Random random = new Random();
+	private Deck sectors = new Deck();
+
 	private HashSet<Position> currentWalkablePositions = new HashSet<Position>();
 
 	private HashSet<GameStateListener> listeners = new HashSet<GameStateListener>();
@@ -122,6 +204,8 @@ public class GameState
 	public CellType GetMapCell(int x, int y) { return map[y, x]; }
 	public CellType GetMapCell(Position p) { return GetMapCell(p.x, p.y); }
 	public Player CurrentPlayer { get { return players[player_turn]; } }
+	public bool GetHatch(Position pos, out Hatch hatch) { return hatches.TryGetValue(pos, out hatch); }
+	public int CurrentWinner { get { return winnerPlayer; } }
 	public int PlayerTurn { get { return player_turn; } }
 	public int TurnCount { get { return turn_count; } }
 	public int CurrentRound { get { return (turn_count / numPlayers) + 1; } }
@@ -178,6 +262,13 @@ public class GameState
 						else
 							UnityEngine.Debug.LogError("Only can be one Human Spawn in the map.");
 						break;
+					case CellType.EscapeHatch:
+						Hatch hatch = new Hatch();
+						hatch.position = new Position(x, y);
+						hatch.type = Hatch.Type.Closed;
+						hatch.Id = hatches.Count + 1;
+						hatches.Add(hatch.position, hatch);
+						break;
 					default:
 						break;
 				};
@@ -218,11 +309,13 @@ public class GameState
 			players[i] = new Player();
 			if (roles[i] == 0)
 			{
+				numHumans++;
 				players[i].type = Player.Type.Human;
 				players[i].position = HumanSpawnPosition;
 			}
 			else
 			{
+				numAliens++;
 				players[i].type = Player.Type.Alien;
 				players[i].position = AlienSpawnPosition;
 			}
@@ -230,6 +323,16 @@ public class GameState
 			players[i].alive = true;
 		}
 
+		int[] sectorCards = new int[15];
+		for (int i = 0; i < sectorCards.Length; i++ )
+		{
+			if (i < 5) sectorCards[i] = 0;
+			else if (i < 10) sectorCards[i] = 1;
+			else sectorCards[i] = 2;
+		}
+
+		sectors = new Deck(sectorCards, random);
+		winnerPlayer = Winner.None;
 		player_turn = random.Next(numPlayers);
 		turn_count = 0;
 		sector_action = SectorState.None;
@@ -276,26 +379,30 @@ public class GameState
 
 	private void SetupNewTurn()
 	{
-		Player currentPlayer = players[player_turn];
-
-		int steps = 1;
-		if (currentPlayer.type == Player.Type.Alien)
-			steps = 2;
-
 		currentWalkablePositions.Clear();
-		currentWalkablePositions.Add(currentPlayer.position);
-		for (int i = 0; i < steps; i++)
-		{
-			HashSet<Position> positions = new HashSet<Position>();
-			foreach (Position position in currentWalkablePositions)
-				AddNeighboursHexagons(position, positions);
-
-			foreach (Position position in positions)
-				currentWalkablePositions.Add(position);
-		}
-
-		currentWalkablePositions.Remove(currentPlayer.position);
 		sector_action = SectorState.None;
+
+		if (winnerPlayer == Winner.None)
+		{
+			Player currentPlayer = players[player_turn];
+
+			int steps = 1;
+			if (currentPlayer.type == Player.Type.Alien)
+				steps = 2;
+
+			currentWalkablePositions.Add(currentPlayer.position);
+			for (int i = 0; i < steps; i++)
+			{
+				HashSet<Position> positions = new HashSet<Position>();
+				foreach (Position position in currentWalkablePositions)
+					AddNeighboursHexagons(position, positions);
+
+				foreach (Position position in positions)
+					currentWalkablePositions.Add(position);
+			}
+
+			currentWalkablePositions.Remove(currentPlayer.position);
+		}
 
 		foreach (GameStateListener listener in listeners)
 			listener.OnNewTurn();
@@ -309,7 +416,10 @@ public class GameState
 			turn_count++;
 		}
 		while (!players[player_turn].alive);
-		
+
+		if ((turn_count / numPlayers) >= 40)
+			winnerPlayer = Winner.Aliens;
+
 		SetupNewTurn();
 	}
 
@@ -358,14 +468,33 @@ public class GameState
 					break;
 				case CellType.SpecialSector:
 					position_to_move = position;
-					int rand = random.Next(5);
-					if (rand == 0 || rand == 1)
+					int rand = sectors.Next();
+					if (rand == 0)
 						sector_action = SectorState.OnNoiseInYourSector;
-					else if (rand == 2 || rand == 3)
+					else if (rand == 1)
 						sector_action = SectorState.OnNoiseInAnySector;
 					else
 						sector_action = SectorState.OnSilenceInAllSectors;
 					break;
+			}
+
+			if (type == CellType.EscapeHatch)
+			{
+				Hatch hatch = new Hatch();
+				if (players[player_turn].type == Player.Type.Human && hatches.TryGetValue(position, out hatch))
+				{
+					StringBuilder builder = new StringBuilder();
+					builder.Append("[P"); builder.Append((player_turn + 1).ToString());
+					builder.Append(":T"); builder.Append(CurrentRound); builder.Append("] ");
+					builder.Append("Player escaped through hatch ");
+					builder.Append(hatch.Id.ToString());
+					winnerPlayer = player_turn;
+
+					PrintLog(builder.ToString());
+					InternalMoveOn(position);
+				}
+				else
+					type = CellType.CleanSector;
 			}
 
 			if (type == CellType.CleanSector)
@@ -378,6 +507,55 @@ public class GameState
 				PrintLog(builder.ToString());
 				InternalMoveOn(position);
 			}
+		}
+	}
+
+	public void TurnAttackOn(Position position)
+	{
+		if (sector_action != SectorState.None)
+			return;
+
+		if (players[player_turn].type != Player.Type.Alien)
+			return;
+
+		if (currentWalkablePositions.Contains(position))
+		{
+			StringBuilder builder = new StringBuilder();
+			builder.Append("[P"); builder.Append((player_turn + 1).ToString());
+			builder.Append(":T"); builder.Append(CurrentRound); builder.Append("] ");
+			builder.Append("Attacked sector " + position.ToString());
+
+			List<int> killed = new List<int>();
+			for (int i = 0; i < numPlayers; i++ )
+			{
+				Player p = players[i];
+				if (p.alive && p.type == Player.Type.Human && p.position.CompareTo(position) == 0)
+					killed.Add(i);
+			}
+
+			if (killed.Count == 0)
+			{
+				builder.Append(" and failed!");
+			}
+			else
+			{
+				for (int j = 0; j < killed.Count; j++)
+				{
+					int i = killed[j];
+					if (j == 0) builder.Append(" and killed player " + (i + 1));
+					else if ((j + 1) == killed.Count) builder.Append(" and " + (i + 1));
+					else builder.Append(", " + (i + 1));
+
+					players[i].alive = false;
+					numHumans--;
+				}
+
+				if (numHumans == 0)
+					winnerPlayer = Winner.Aliens;
+			}
+
+			PrintLog(builder.ToString());
+			InternalMoveOn(position);
 		}
 	}
 }

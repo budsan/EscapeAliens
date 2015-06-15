@@ -65,6 +65,11 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 		return m_state.PlayerTurn;
 	}
 
+	public int CurrentWinner()
+	{
+		return m_state.CurrentWinner;
+	}
+
 	public bool IsHumanPlaying()
 	{
 		try
@@ -120,7 +125,6 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 		}
 
 		Vector2 halfsize = new Vector2(stride.x * GameState.map_size_x, stride.y * GameState.map_size_y) * -0.5f;
-		int hatchNum = 0;
 		for (int y = 0; y < GameState.map_size_y; ++y)
 		{
 			for (int x = 0; x < GameState.map_size_x; ++x)
@@ -137,7 +141,9 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 						hexName = hexpos.ToString();
 						break;
 					case GameState.CellType.EscapeHatch:
-						hexName = (++hatchNum).ToString();
+						GameState.Hatch hatch = new GameState.Hatch();
+						if (m_state.GetHatch(hexpos, out hatch))
+							hexName = hatch.Id.ToString();
 						break;
 					default:
 						break;
@@ -183,7 +189,6 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 			}
 
 		m_newTurn = true;
-		Debug.Log("OnNewTurn");
 	}
 
 	public void TurnSpecialSectorMove()
@@ -196,6 +201,9 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 		if (!m_newTurn)
 			return;
 
+		if (m_state.CurrentWinner != GameState.Winner.None)
+			return;
+
 		GameState.Player currentPlayer = m_state.CurrentPlayer;
 		m_highlighted = currentPlayer.position;
 		cells[m_highlighted.y, m_highlighted.x].highlight = Hexagon.Highlight.Current;
@@ -206,13 +214,14 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 		m_click = new GameState.Position(-1, -1);
 
 		m_newTurn = false;
-		Debug.Log("SetupNewTurn");
 	}
 
 	public void TurnAttack()
 	{
 		if (m_click.x < 0)
 			return;
+
+		m_state.TurnAttackOn(m_click);
 	}
 
 	public void TurnMove()
