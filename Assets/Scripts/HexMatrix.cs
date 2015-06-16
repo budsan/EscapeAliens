@@ -41,6 +41,8 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 	[SerializeField]
 	public UnityEngine.UI.Text LogText;
 
+	public GameObject SelectedDecoration;
+
 	private Hexagon[,] cells = null;
 	private GameState m_state = new GameState();
 
@@ -250,6 +252,14 @@ public class HexMatrix : MonoBehaviour, GameStateListener {
 	public void ClickOn(GameState.Position position)
 	{
 		m_click = position;
+
+		if (SelectedDecoration != null)
+		{
+			Vector3 decorPosition = cells[position.y, position.x].transform.position;
+			decorPosition.y = 0.01f;
+			SelectedDecoration.transform.position = decorPosition;
+			SelectedDecoration.SetActive(true);
+		}
 	}
 
 }
