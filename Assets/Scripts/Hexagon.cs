@@ -116,6 +116,7 @@ public class Hexagon : Selectable {
 		}
 	}
 
+	/*
 	public void FixedUpdate()
 	{
 		m_currentColor = Color.Lerp(m_currentColor, m_targetColor, 0.25f);
@@ -136,4 +137,5 @@ public class Hexagon : Selectable {
 			m_hexText.color = textColor;
 		}
 	}
+	*/
 }
